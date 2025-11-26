@@ -19,6 +19,8 @@ A whitelist configuration that selects specific OpenCV functions for the WebAsse
 ### 2. Custom C++ Binding for `estimateAffinePartial2D`
 **File:** `modules/js/src/affine_partial2d_bindings.cpp`
 
+> **Note:** This custom binding may not have been strictly necessary. The function `estimateAffinePartial2D` is marked `CV_EXPORTS_W` in OpenCV, which means it could potentially be exposed by simply adding `'estimateAffinePartial2D'` to the whitelist in the config file (similar to how `estimateAffine2D` is exposed in the standard `opencv_js.config.py`). However, this custom binding provides a more JavaScript-friendly API that accepts flat arrays and returns plain JS objects. If you want to simplify, you could try removing this custom binding and just adding the function to the whitelist instead.
+
 A custom Emscripten binding that exposes `cv::estimateAffinePartial2D` to JavaScript with a convenient API:
 
 ```javascript
@@ -45,24 +47,47 @@ Added the custom binding source and linked against `opencv_calib3d`.
 ## Building OpenCV.js
 
 ### Prerequisites
-- Docker installed and running
+
+- Ubuntu 20.04 (tested via Parallels on macOS)
+- Emscripten SDK installed and configured
 
 ### Build Command
 
 ```bash
-docker run --rm --platform linux/amd64 \
-  -e CMAKE_BUILD_PARALLEL_LEVEL=$(getconf _NPROCESSORS_ONLN) \
-  -v "$(pwd)":/src -u $(id -u):$(id -g) emscripten/emsdk:2.0.10 \
-  emcmake python3 ./platforms/js/build_js.py build_js \
-    --config platforms/js/diffchecker_image_align_custom_opencv_js.config.py \
-    --disable_single_file \
-    --build_flags "-s ASSERTIONS=0 -s SAFE_HEAP=0 -s ENVIRONMENT=web" \
-    --cmake_option="-DBUILD_LIST=core,imgproc,features2d,calib3d,objdetect,video,dnn,photo" \
-    --cmake_option="-DCMAKE_BUILD_TYPE=MinSizeRel" \
-    --cmake_option="-DBUILD_TESTS=OFF" \
-    --cmake_option="-DBUILD_PERF_TESTS=OFF" \
-    --clean_build_dir
+source /path/to/emsdk/emsdk_env.sh
+
+emcmake python ./platforms/js/build_js.py build_js/ \
+  --config platforms/js/diffchecker_image_align_custom_opencv_js.config.py \
+  --disable_single_file \
+  --build_flags "-s ASSERTIONS=0 -s SAFE_HEAP=0 -s ENVIRONMENT=web" \
+  --cmake_option="-DBUILD_LIST=core,imgproc,features2d,calib3d,objdetect,video,dnn,photo,js" \
+  --cmake_option="-DCMAKE_BUILD_TYPE=MinSizeRel" \
+  --cmake_option="-DBUILD_TESTS=OFF" \
+  --cmake_option="-DBUILD_PERF_TESTS=OFF" \
+  --clean_build_dir
 ```
+
+### Build Flags Explained
+
+| Flag | Description |
+|------|-------------|
+| `--config` | Path to the whitelist config file that specifies which OpenCV functions to expose |
+| `--disable_single_file` | Output separate `.js` and `.wasm` files instead of embedding wasm in js |
+| `--build_flags` | Emscripten compiler flags passed to em++ |
+| `-s ASSERTIONS=0` | Disable runtime assertions (smaller/faster output) |
+| `-s SAFE_HEAP=0` | Disable heap safety checks (faster output) |
+| `-s ENVIRONMENT=web` | Target web browser environment only |
+| `--cmake_option` | Pass options directly to CMake |
+| `-DBUILD_LIST=...` | Restrict which OpenCV modules are built (must include `js`) |
+| `-DCMAKE_BUILD_TYPE=MinSizeRel` | Optimize for minimal binary size |
+| `-DBUILD_TESTS=OFF` | Skip building OpenCV test binaries |
+| `-DBUILD_PERF_TESTS=OFF` | Skip building performance test binaries |
+| `--clean_build_dir` | Remove previous build artifacts before building |
+
+For more details:
+- `build_js.py` flags: `python ./platforms/js/build_js.py --help`
+- Emscripten `-s` flags: [Emscripten settings reference](https://emscripten.org/docs/tools_reference/settings_reference.html)
+- CMake `-D` options: [CMake documentation](https://cmake.org/cmake/help/latest/manual/cmake-variables.7.html)
 
 ### Output
 
@@ -72,61 +97,7 @@ After a successful build, the output files will be in `build_js/bin/`:
 
 ---
 
-## Adding Your Own Custom Bindings
+## Alternative Build Methods
 
-If you need to expose additional OpenCV functions to JavaScript:
-
-### Step 1: Create a binding file
-
-Create a new `.cpp` file in `modules/js/src/` with your Emscripten bindings:
-
-```cpp
-#include <opencv2/your_module.hpp>
-#include <emscripten/bind.h>
-
-using namespace emscripten;
-using namespace cv;
-
-val yourFunction_js(/* params */) {
-    // Convert JS types to C++ types
-    // Call OpenCV function
-    // Return results as val objects
-}
-
-EMSCRIPTEN_BINDINGS(your_bindings) {
-    function("yourFunction_js", &yourFunction_js);
-}
-```
-
-### Step 2: Register in CMakeLists.txt
-
-Add to `modules/js/CMakeLists.txt`:
-
-```cmake
-target_sources(${the_module} PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/your_bindings.cpp
-)
-target_link_libraries(${the_module} PRIVATE opencv_your_module)
-```
-
-### Step 3: Update the config (optional)
-
-If you also want the auto-generated bindings for certain functions, add them to your config file's whitelist.
-
-### Step 4: Rebuild
-
-Run the Docker build command above.
-
----
-
-## Why Custom Bindings?
-
-The standard OpenCV.js build auto-generates JavaScript bindings, but:
-- Not all functions are exposed
-- Some functions have complex signatures that don't translate well
-- You may want a simpler JavaScript-friendly API
-
-Custom Emscripten bindings let you:
-- Expose any OpenCV function
-- Design a cleaner API for JavaScript consumers
-- Handle type conversions explicitly
+For other build configurations (Docker, different platforms, etc.), see the official OpenCV.js documentation:
+https://docs.opencv.org/3.4/d4/da1/tutorial_js_setup.html

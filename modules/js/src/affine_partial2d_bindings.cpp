@@ -1,3 +1,21 @@
+/**
+ * Custom Emscripten binding for cv::estimateAffinePartial2D
+ *
+ * NOTE: This custom binding may not have been strictly necessary.
+ * The function estimateAffinePartial2D is marked CV_EXPORTS_W in OpenCV,
+ * which means it could potentially be auto-exposed by simply adding
+ * 'estimateAffinePartial2D' to the whitelist in the config .py file
+ * (similar to how estimateAffine2D is exposed in opencv_js.config.py).
+ *
+ * However, this custom binding provides a more JavaScript-friendly API:
+ * - Accepts flat arrays [x0, y0, x1, y1, ...] instead of cv.Mat
+ * - Returns a plain JS object {matrix: [...], inliers: [...]}
+ *
+ * If you want to simplify, you could try removing this file and the
+ * corresponding CMakeLists.txt changes, then just add the function
+ * to your config whitelist instead.
+ */
+
 #include <vector>
 #include <opencv2/calib3d.hpp>
 #include <emscripten/bind.h>
