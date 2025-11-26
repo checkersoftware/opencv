@@ -22,6 +22,9 @@ bin/
 *.log
 *.tlog
 build
+build_js/
 node_modules
 CMakeSettings.json
 xcuserdata/
+docker
+tmp.txt

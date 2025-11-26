@@ -100,6 +100,14 @@ else()
   ocv_add_executable(${the_module} ${bindings_cpp})
 endif()
 
+# >>> adding custom binding into the opencv_js WASM <<<
+target_sources(${the_module} PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/affine_partial2d_bindings.cpp
+)
+target_link_libraries(${the_module} PRIVATE opencv_calib3d)
+# ^ ensures the C++ that calls estimateAffinePartial2D links cleanly
+
+
 add_dependencies(${the_module} gen_opencv_js_source)
 
 set(COMPILE_FLAGS "")
